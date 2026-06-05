@@ -113,7 +113,6 @@ if dados_fato:
             if produtividade_equipe:
                 df_equipe = pd.DataFrame(list(produtividade_equipe.items()), columns=['Funcionário', 'Metros']).sort_values(by='Metros', ascending=False)
                 
-                # Gráfico Horizontal Altair
                 grafico_eqp = alt.Chart(df_equipe).mark_bar(color='#1f77b4').encode(
                     x=alt.X('Metros:Q', title='Metros Produzidos'),
                     y=alt.Y('Funcionário:N', sort='-x', title=''),
@@ -121,7 +120,6 @@ if dados_fato:
                 ).properties(height=350)
                 
                 st.altair_chart(grafico_eqp, use_container_width=True)
-                st.dataframe(df_equipe, hide_index=True, use_container_width=True)
             else:
                 st.write("Sem dados de equipe para este período.")
 
@@ -130,7 +128,6 @@ if dados_fato:
             if produtividade_maquina:
                 df_maquina = pd.DataFrame(list(produtividade_maquina.items()), columns=['Máquina', 'Metros']).sort_values(by='Metros', ascending=False)
                 
-                # Gráfico Horizontal Altair
                 grafico_maq = alt.Chart(df_maquina).mark_bar(color='#ff7f0e').encode(
                     x=alt.X('Metros:Q', title='Metros Produzidos'),
                     y=alt.Y('Máquina:N', sort='-x', title=''),
@@ -138,8 +135,24 @@ if dados_fato:
                 ).properties(height=350)
                 
                 st.altair_chart(grafico_maq, use_container_width=True)
-                st.dataframe(df_maquina, hide_index=True, use_container_width=True)
             else:
                 st.write("Sem dados de máquina para este período.")
+
+        # 10. TABELA RESUMIDA (HISTÓRICO RECENTE)
+        st.markdown("---")
+        st.subheader("📋 Histórico de Obras (Auditoria)")
+        
+        # Filtra as colunas, ordena da mais nova para a mais velha e formata a data
+        df_resumo = df_filtrado[['data_registro', 'nome_obra', 'producao_metros']].copy()
+        df_resumo = df_resumo.sort_values(by='data_registro', ascending=False)
+        df_resumo['Data'] = df_resumo['data_registro'].dt.strftime('%d/%m/%Y %H:%M')
+        
+        df_resumo_final = df_resumo[['Data', 'nome_obra', 'producao_metros']].rename(columns={
+            'nome_obra': 'Obra',
+            'producao_metros': 'Produção (m)'
+        })
+        
+        st.dataframe(df_resumo_final, hide_index=True, use_container_width=True)
+
 else:
     st.warning("Nenhum dado encontrado na base.")
