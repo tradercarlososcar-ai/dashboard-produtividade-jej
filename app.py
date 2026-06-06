@@ -68,12 +68,13 @@ if dados_fato:
     if mes_selecionado != "Todos":
         df_filtrado = df_filtrado[df_filtrado['Mês'] == mes_selecionado]
 
-    # 8. O MOTOR MATEMÁTICO
+    # 8. O MOTOR MATEMÁTICO (Agora incluindo Obras)
     map_func = {f['id_funcionario']: f['nome_completo'] for f in dados_func}
     map_maq = {m['id_maquina']: m['modelo'] for m in dados_maq}
 
     produtividade_equipe = {}
     produtividade_maquina = {}
+    produtividade_obra = {}
 
     dados_filtrados = df_filtrado.to_dict('records')
 
@@ -87,6 +88,10 @@ if dados_fato:
             id_nav = linha.get('id_navegador')
             ids_aux = linha.get('ids_auxiliares') or []
             id_maq = linha.get('id_maquina')
+            
+            # Captura o nome da obra para o novo consolidado
+            obra = linha.get('nome_obra') or linha.get('obra') or "Obra não especificada"
+            produtividade_obra[obra] = produtividade_obra.get(obra, 0) + metros
 
             if id_op in map_func:
                 nome = map_func[id_op]
@@ -105,7 +110,7 @@ if dados_fato:
                 modelo = map_maq[id_maq]
                 produtividade_maquina[modelo] = produtividade_maquina.get(modelo, 0) + metros
 
-        # 9. TRANSFORMAÇÃO VISUAL CORPORATIVA (ALTAIR)
+        # 9. TRANSFORMAÇÃO VISUAL (Equipes e Máquinas)
         col1, col2 = st.columns(2)
 
         with col1:
@@ -138,11 +143,27 @@ if dados_fato:
             else:
                 st.write("Sem dados de máquina para este período.")
 
-        # 10. TABELA RESUMIDA (HISTÓRICO RECENTE)
+        # 10. NOVO GRÁFICO: PRODUÇÃO CONSOLIDADA POR OBRA
+        st.markdown("---")
+        st.subheader("🏢 Produção Consolidada por Obra (Cliente)")
+        
+        if produtividade_obra:
+            df_obra = pd.DataFrame(list(produtividade_obra.items()), columns=['Obra', 'Metros']).sort_values(by='Metros', ascending=False)
+            
+            grafico_obra = alt.Chart(df_obra).mark_bar(color='#2ca02c').encode( # Cor verde para diferenciar
+                x=alt.X('Metros:Q', title='Metros Produzidos'),
+                y=alt.Y('Obra:N', sort='-x', title=''),
+                tooltip=['Obra', 'Metros']
+            ).properties(height=250)
+            
+            st.altair_chart(grafico_obra, use_container_width=True)
+        else:
+            st.write("Sem dados de obras para este período.")
+
+        # 11. TABELA RESUMIDA (HISTÓRICO RECENTE)
         st.markdown("---")
         st.subheader("📋 Histórico de Obras (Auditoria)")
         
-        # Filtra as colunas, ordena da mais nova para a mais velha e formata a data
         df_resumo = df_filtrado[['data_registro', 'nome_obra', 'producao_metros']].copy()
         df_resumo = df_resumo.sort_values(by='data_registro', ascending=False)
         df_resumo['Data'] = df_resumo['data_registro'].dt.strftime('%d/%m/%Y %H:%M')
