@@ -8,7 +8,7 @@ st.set_page_config(page_title="J&J Dash", page_icon="🚧", layout="wide")
 
 # 2. CREDENCIAIS DO BANCO DE DADOS
 SUPABASE_URL = "https://tmtumapreafsfuuyfjiv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdHVtYXByZWFmc2Z1dXlmaml2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUxNjU1MSwiZXhwIjoyMDk2MDkyNTUxfQ.wHOR-Iye1iy01EoQrtY3CdnbxnUfDGzoYKhzbNL36PE"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUxNjU1MSwiZXhwIjoyMDk2MDkyNTUxfQ.wHOR-Iye1iy01EoQrtY3CdnbxnUfDGzoYKhzbNL36PE"
 
 @st.cache_resource
 def iniciar_conexao():
@@ -18,7 +18,7 @@ supabase = iniciar_conexao()
 
 # 3. INTERFACE GRÁFICA
 st.title("🚧 Painel de Produtividade - J&J Perfurações")
-st.markdown("Visão de Gestão: Distribuição de Metragem por Equipe e Equipamento")
+st.markdown("Visão de Gestão: Distribuição de Metragem por Equipe, Máquina e Obra")
 st.markdown("---")
 
 # 4. BUSCA E CRUZAMENTO DE DADOS
@@ -84,27 +84,31 @@ if dados_fato:
         if linha.get('id_maquina') in map_maq:
             prod_maq[map_maq[linha['id_maquina']]] = prod_maq.get(map_maq[linha['id_maquina']], 0) + mts
 
-    # 9. EXIBIÇÃO GRÁFICA
+    # 9. EXIBIÇÃO GRÁFICA (Colunas Padronizadas)
     col1, col2 = st.columns(2)
+    
     with col1:
         st.subheader("🏆 Ranking de Equipe")
         df_eq = pd.DataFrame(list(prod_equipe.items()), columns=['Funcionário', 'Metros']).sort_values('Metros', ascending=False)
-        st.altair_chart(alt.Chart(df_eq).mark_bar(color='#1f77b4').encode(x='Metros:Q', y=alt.Y('Funcionário:N', sort='-x')), use_container_width=True)
-        
-        # Tabela Detalhada Individual (O item que faltava)
+        grafico_eq = alt.Chart(df_eq).mark_bar(color='#1f77b4').encode(x='Metros:Q', y=alt.Y('Funcionário:N', sort='-x')).properties(height=300)
+        st.altair_chart(grafico_eq, use_container_width=True)
+        st.markdown("---")
         st.dataframe(df_eq.rename(columns={'Metros': 'Metros Totais'}), hide_index=True, use_container_width=True)
 
     with col2:
         st.subheader("🚜 Ranking de Máquina")
         df_mq = pd.DataFrame(list(prod_maq.items()), columns=['Máquina', 'Metros']).sort_values('Metros', ascending=False)
-        st.altair_chart(alt.Chart(df_mq).mark_bar(color='#ff7f0e').encode(x='Metros:Q', y=alt.Y('Máquina:N', sort='-x')), use_container_width=True)
+        grafico_mq = alt.Chart(df_mq).mark_bar(color='#ff7f0e').encode(x='Metros:Q', y=alt.Y('Máquina:N', sort='-x')).properties(height=300)
+        st.altair_chart(grafico_mq, use_container_width=True)
+        st.markdown("---")
         st.dataframe(df_mq.rename(columns={'Metros': 'Metros Totais'}), hide_index=True, use_container_width=True)
 
     # 10. GRÁFICO OBRAS
     st.markdown("---")
-    st.subheader("🏢 Produção por Obra")
+    st.subheader("🏢 Produção Consolidada por Obra")
     df_ob = pd.DataFrame(list(prod_obra.items()), columns=['Obra', 'Metros']).sort_values('Metros', ascending=False)
-    st.altair_chart(alt.Chart(df_ob).mark_bar(color='#2ca02c').encode(x='Metros:Q', y=alt.Y('Obra:N', sort='-x')), use_container_width=True)
+    grafico_ob = alt.Chart(df_ob).mark_bar(color='#2ca02c').encode(x='Metros:Q', y=alt.Y('Obra:N', sort='-x')).properties(height=250)
+    st.altair_chart(grafico_ob, use_container_width=True)
 
     # 11. HISTÓRICO AUDITORIA
     st.markdown("---")
