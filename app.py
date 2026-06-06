@@ -21,7 +21,7 @@ st.title("🚧 Painel de Produtividade - J&J Perfurações")
 st.markdown("Visão de Gestão: Distribuição de Metragem por Equipe e Equipamento")
 st.markdown("---")
 
-# 4. BUSCA E CRUZAMENTO DE DADOS (JOINS LÓGICOS)
+# 4. BUSCA E CRUZAMENTO DE DADOS
 try:
     req_fato = supabase.table('fato_producao').select('*').execute()
     req_func = supabase.table('dim_funcionarios').select('id_funcionario, nome_completo').execute()
@@ -30,7 +30,6 @@ try:
     dados_fato = req_fato.data
     dados_func = req_func.data
     dados_maq = req_maq.data
-
 except Exception as e:
     st.error(f"Erro ao buscar dados: {e}")
     dados_fato = []
@@ -40,8 +39,14 @@ if dados_fato:
     
     # 5. INTELIGÊNCIA TEMPORAL
     df_fato['data_registro'] = pd.to_datetime(df_fato['created_at'])
-    df_fato['Ano'] = df_fato['data_registro'].dt.year
-    df_fato['Mês_Num'] = df_fato['data_registro'].dt.month
+    # Se existir data_obra no banco, usamos ela, senão usamos a de registro
+    if 'data_obra' in df_fato.columns:
+        df_fato['data_exibicao'] = pd.to_datetime(df_fato['data_obra'])
+    else:
+        df_fato['data_exibicao'] = df_fato['data_registro']
+        
+    df_fato['Ano'] = df_fato['data_exibicao'].dt.year
+    df_fato['Mês_Num'] = df_fato['data_exibicao'].dt.month
     
     meses_ptbr = {1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho', 
                   7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'}
@@ -49,7 +54,6 @@ if dados_fato:
 
     # 6. BARRA LATERAL (FILTROS)
     st.sidebar.header("📅 Filtros de Período")
-    
     anos_disponiveis = ["Todos"] + sorted(df_fato['Ano'].unique().tolist())
     ano_selecionado = st.sidebar.selectbox("Filtre por Ano", anos_disponiveis)
 
@@ -57,123 +61,64 @@ if dados_fato:
         meses_disp_num = df_fato[df_fato['Ano'] == ano_selecionado]['Mês_Num'].unique().tolist()
     else:
         meses_disp_num = df_fato['Mês_Num'].unique().tolist()
-        
     meses_disponiveis = ["Todos"] + [meses_ptbr[m] for m in sorted(meses_disp_num)]
     mes_selecionado = st.sidebar.selectbox("Filtre por Mês", meses_disponiveis)
 
-    # 7. APLICANDO OS FILTROS
+    # 7. FILTRAGEM
     df_filtrado = df_fato.copy()
     if ano_selecionado != "Todos":
         df_filtrado = df_filtrado[df_filtrado['Ano'] == ano_selecionado]
     if mes_selecionado != "Todos":
         df_filtrado = df_filtrado[df_filtrado['Mês'] == mes_selecionado]
 
-    # 8. O MOTOR MATEMÁTICO (Agora incluindo Obras)
+    # 8. MOTOR DE CÁLCULO
     map_func = {f['id_funcionario']: f['nome_completo'] for f in dados_func}
     map_maq = {m['id_maquina']: m['modelo'] for m in dados_maq}
+    produtividade_equipe, produtividade_maquina, produtividade_obra = {}, {}, {}
 
-    produtividade_equipe = {}
-    produtividade_maquina = {}
-    produtividade_obra = {}
-
-    dados_filtrados = df_filtrado.to_dict('records')
-
-    if not dados_filtrados:
-        st.info("Nenhum dado de produção encontrado para este período.")
-    else:
-        for linha in dados_filtrados:
-            metros = float(linha.get('producao_metros', 0) or 0)
-            
-            id_op = linha.get('id_operador')
-            id_nav = linha.get('id_navegador')
-            ids_aux = linha.get('ids_auxiliares') or []
-            id_maq = linha.get('id_maquina')
-            
-            # Captura o nome da obra para o novo consolidado
-            obra = linha.get('nome_obra') or linha.get('obra') or "Obra não especificada"
-            produtividade_obra[obra] = produtividade_obra.get(obra, 0) + metros
-
-            if id_op in map_func:
-                nome = map_func[id_op]
-                produtividade_equipe[nome] = produtividade_equipe.get(nome, 0) + metros
-                
-            if id_nav in map_func:
-                nome = map_func[id_nav]
-                produtividade_equipe[nome] = produtividade_equipe.get(nome, 0) + metros
-
-            for id_a in ids_aux:
-                if id_a in map_func:
-                    nome = map_func[id_a]
-                    produtividade_equipe[nome] = produtividade_equipe.get(nome, 0) + metros
-
-            if id_maq in map_maq:
-                modelo = map_maq[id_maq]
-                produtividade_maquina[modelo] = produtividade_maquina.get(modelo, 0) + metros
-
-        # 9. TRANSFORMAÇÃO VISUAL (Equipes e Máquinas)
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.subheader("🏆 Ranking de Produção (Equipe)")
-            if produtividade_equipe:
-                df_equipe = pd.DataFrame(list(produtividade_equipe.items()), columns=['Funcionário', 'Metros']).sort_values(by='Metros', ascending=False)
-                
-                grafico_eqp = alt.Chart(df_equipe).mark_bar(color='#1f77b4').encode(
-                    x=alt.X('Metros:Q', title='Metros Produzidos'),
-                    y=alt.Y('Funcionário:N', sort='-x', title=''),
-                    tooltip=['Funcionário', 'Metros']
-                ).properties(height=350)
-                
-                st.altair_chart(grafico_eqp, use_container_width=True)
-            else:
-                st.write("Sem dados de equipe para este período.")
-
-        with col2:
-            st.subheader("🚜 Produção por Máquina")
-            if produtividade_maquina:
-                df_maquina = pd.DataFrame(list(produtividade_maquina.items()), columns=['Máquina', 'Metros']).sort_values(by='Metros', ascending=False)
-                
-                grafico_maq = alt.Chart(df_maquina).mark_bar(color='#ff7f0e').encode(
-                    x=alt.X('Metros:Q', title='Metros Produzidos'),
-                    y=alt.Y('Máquina:N', sort='-x', title=''),
-                    tooltip=['Máquina', 'Metros']
-                ).properties(height=350)
-                
-                st.altair_chart(grafico_maq, use_container_width=True)
-            else:
-                st.write("Sem dados de máquina para este período.")
-
-        # 10. NOVO GRÁFICO: PRODUÇÃO CONSOLIDADA POR OBRA
-        st.markdown("---")
-        st.subheader("🏢 Produção Consolidada por Obra (Cliente)")
+    for _, linha in df_filtrado.iterrows():
+        metros = float(linha.get('producao_metros', 0) or 0)
+        obra = linha.get('nome_obra', 'Obra não especificada')
         
-        if produtividade_obra:
-            df_obra = pd.DataFrame(list(produtividade_obra.items()), columns=['Obra', 'Metros']).sort_values(by='Metros', ascending=False)
-            
-            grafico_obra = alt.Chart(df_obra).mark_bar(color='#2ca02c').encode( # Cor verde para diferenciar
-                x=alt.X('Metros:Q', title='Metros Produzidos'),
-                y=alt.Y('Obra:N', sort='-x', title=''),
-                tooltip=['Obra', 'Metros']
-            ).properties(height=250)
-            
-            st.altair_chart(grafico_obra, use_container_width=True)
-        else:
-            st.write("Sem dados de obras para este período.")
+        produtividade_obra[obra] = produtividade_obra.get(obra, 0) + metros
+        
+        # Lógica de Equipes
+        for key in ['id_operador', 'id_navegador']:
+            if linha.get(key) in map_func:
+                produtividade_equipe[map_func[linha[key]]] = produtividade_equipe.get(map_func[linha[key]], 0) + metros
+        
+        for aux_id in (linha.get('ids_auxiliares') or []):
+            if aux_id in map_func:
+                produtividade_equipe[map_func[aux_id]] = produtividade_equipe.get(map_func[aux_id], 0) + metros
+        
+        if linha.get('id_maquina') in map_maq:
+            produtividade_maquina[map_maq[linha['id_maquina']]] = produtividade_maquina.get(map_maq[linha['id_maquina']], 0) + metros
 
-        # 11. TABELA RESUMIDA (HISTÓRICO RECENTE)
-        st.markdown("---")
-        st.subheader("📋 Histórico de Obras (Auditoria)")
-        
-        df_resumo = df_filtrado[['data_registro', 'nome_obra', 'producao_metros']].copy()
-        df_resumo = df_resumo.sort_values(by='data_registro', ascending=False)
-        df_resumo['Data'] = df_resumo['data_registro'].dt.strftime('%d/%m/%Y %H:%M')
-        
-        df_resumo_final = df_resumo[['Data', 'nome_obra', 'producao_metros']].rename(columns={
-            'nome_obra': 'Obra',
-            'producao_metros': 'Produção (m)'
-        })
-        
-        st.dataframe(df_resumo_final, hide_index=True, use_container_width=True)
+    # 9. EXIBIÇÃO GRÁFICA
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("🏆 Ranking de Equipe")
+        if produtividade_equipe:
+            df_eq = pd.DataFrame(list(produtividade_equipe.items()), columns=['Funcionário', 'Metros']).sort_values('Metros', ascending=False)
+            st.altair_chart(alt.Chart(df_eq).mark_bar(color='#1f77b4').encode(x='Metros:Q', y=alt.Y('Funcionário:N', sort='-x')), use_container_width=True)
+    with col2:
+        st.subheader("🚜 Ranking de Máquina")
+        if produtividade_maquina:
+            df_mq = pd.DataFrame(list(produtividade_maquina.items()), columns=['Máquina', 'Metros']).sort_values('Metros', ascending=False)
+            st.altair_chart(alt.Chart(df_mq).mark_bar(color='#ff7f0e').encode(x='Metros:Q', y=alt.Y('Máquina:N', sort='-x')), use_container_width=True)
 
+    # 10. GRÁFICO OBRAS
+    st.markdown("---")
+    st.subheader("🏢 Produção por Obra")
+    if produtividade_obra:
+        df_ob = pd.DataFrame(list(produtividade_obra.items()), columns=['Obra', 'Metros']).sort_values('Metros', ascending=False)
+        st.altair_chart(alt.Chart(df_ob).mark_bar(color='#2ca02c').encode(x='Metros:Q', y=alt.Y('Obra:N', sort='-x')), use_container_width=True)
+
+    # 11. HISTÓRICO AUDITORIA
+    st.markdown("---")
+    st.subheader("📋 Histórico de Obras (Auditoria)")
+    df_resumo = df_filtrado.sort_values('data_exibicao', ascending=False)[['data_exibicao', 'nome_obra', 'producao_metros']]
+    df_resumo['Data'] = df_resumo['data_exibicao'].dt.strftime('%d/%m/%Y')
+    st.dataframe(df_resumo[['Data', 'nome_obra', 'producao_metros']].rename(columns={'nome_obra':'Obra', 'producao_metros':'Produção (m)'}), hide_index=True, use_container_width=True)
 else:
     st.warning("Nenhum dado encontrado na base.")
