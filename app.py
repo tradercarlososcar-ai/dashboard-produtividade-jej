@@ -8,7 +8,7 @@ st.set_page_config(page_title="J&J Dash", page_icon="🚧", layout="wide")
 
 # 2. CREDENCIAIS DO BANCO DE DADOS
 SUPABASE_URL = "https://tmtumapreafsfuuyfjiv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUxNjU1MSwiZXhwIjoyMDk2MDkyNTUxfQ.wHOR-Iye1iy01EoQrtY3CdnbxnUfDGzoYKhzbNL36PE"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdHVtYXByZWFmc2Z1dXlmaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTY1NTEsImV4cCI6MjA5NjA5MjU1MX0.IBXl2tkAnhznz-_Hyz2vFJIT51ZXqIqMAo_N_IOkoq0"
 
 @st.cache_resource
 def iniciar_conexao():
