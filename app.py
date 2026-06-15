@@ -8,7 +8,7 @@ st.set_page_config(page_title="J&J Dash", page_icon="🚧", layout="wide")
 
 # 2. CREDENCIAIS DO BANCO DE DADOS
 SUPABASE_URL = "https://tmtumapreafsfuuyfjiv.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtdHVtYXByZWFmc2Z1dXlmaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MTY1NTEsImV4cCI6MjA5NjA5MjU1MX0.IBXl2tkAnhznz-_Hyz2vFJIT51ZXqIqMAo_N_IOkoq0"
+SUPABASE_KEY = "COLE_SUA_KEY_AQUI" # Insira sua chave aqui
 
 @st.cache_resource
 def iniciar_conexao():
@@ -30,6 +30,17 @@ try:
     dados_fato = req_fato.data
     dados_func = req_func.data
     dados_maq = req_maq.data
+
+    # --- AUDITORIA TÉCNICA (DEBUG) ---
+    if dados_fato:
+        st.sidebar.info(f"DEBUG: {len(dados_fato)} registros carregados.")
+        # Se os dados vierem, mas os gráficos não aparecerem, 
+        # este log abaixo mostrará se os nomes das colunas estão corretos
+        # st.write("Chaves das colunas:", list(dados_fato[0].keys())) 
+    else:
+        st.warning("DEBUG: A consulta ao banco retornou vazia (0 registros).")
+    # ---------------------------------
+
 except Exception as e:
     st.error(f"Erro ao buscar dados: {e}")
     dados_fato = []
@@ -84,7 +95,7 @@ if dados_fato:
         if linha.get('id_maquina') in map_maq:
             prod_maq[map_maq[linha['id_maquina']]] = prod_maq.get(map_maq[linha['id_maquina']], 0) + mts
 
-    # 9. EXIBIÇÃO GRÁFICA (Colunas Padronizadas)
+    # 9. EXIBIÇÃO GRÁFICA
     col1, col2 = st.columns(2)
     
     with col1:
